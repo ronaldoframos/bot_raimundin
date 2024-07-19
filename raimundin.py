@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from PIL import Image
+# para usar o gemini
+from langchain_google_genai import ChatGoogleGenerativeAI,HarmCategory,HarmBlockThreshold
+import time
 
 # Ler o arquivo .env
 load_dotenv()
@@ -26,7 +29,15 @@ def get_response(user_query, chat_history):
     Pergunta do usuário: {user_question}.
     """
     prompt = ChatPromptTemplate.from_template(template)
-    llm = ChatOpenAI()
+    #llm = ChatOpenAI()
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-pro",
+        safety_settings={HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE},
+        convert_system_message_to_human=True,
+        temperature=1.0,
+        frequence_penalty=2,
+    )
+
     chain = prompt | llm | JsonOutputParser()
     response = chain.invoke({
         "chat_history": chat_history,
@@ -113,10 +124,30 @@ with col2:
 user_query = st.chat_input("Digite a sua mensagem aqui...", key="user_input")
 if user_query:
     st.session_state.chat_history.append(HumanMessage(content=user_query))
-    resposta = get_response(user_query, st.session_state.chat_history)
-    response_text = resposta['resposta']
-    st.session_state.anger_level = (st.session_state.anger_level + resposta["ofensa"])/2
-    st.session_state.chat_history.append(AIMessage(content=response_text))
+    for i in range(10):
+        try:
+            resposta = get_response(user_query, st.session_state.chat_history)
+            break
+        except Exception as e:
+            print(f"Erro na resposta {e} ")
+            time.sleep(5)
+    else:
+        resposta = {"ofensa":0, "resposta":"Não entendi colega. Diga o que você quer "}
+    if isinstance(resposta, dict):
+        response_text = str(resposta["resposta"])
+        ofensa = int(resposta["ofensa"])
+    else:
+        response_text = str(resposta)
+        ofensa = 0
+    response_text = response_text.replace(']','')
+    response_text = response_text.replace('[','')
+    response_text = response_text.replace('{','')
+    response_text = response_text.replace('}','')
+    response_text = response_text.replace(':','')
+    response_text = response_text.replace('ofensa','')
+    st.session_state.anger_level = (st.session_state.anger_level + ofensa)/2
+    #st.session_state.chat_history.append(AIMessage(content=response_text))
+    st.session_state.chat_history.append(response_text)
     with chat_placeholder:
         for message in st.session_state.chat_history:
             if isinstance(message, AIMessage):
@@ -125,4 +156,8 @@ if user_query:
             elif isinstance(message, HumanMessage):
                 with st.chat_message("Human"):
                     st.write(message.content)
+            else:
+                with st.chat_message("Human"):
+                    st.write(message)
+
 
