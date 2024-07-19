@@ -52,6 +52,34 @@ def get_anger_color(anger_level):
     red = int((anger_level / 100) * 255)
     return f"rgb({red}, 0, 0)"
 
+import re
+
+def verificar_ofensa_e_extrair_numero_e_resto(string, palavra_ofensa='ofensa'):
+    # Expressão regular para encontrar a palavra de ofensa seguida de um número
+    pattern = rf"{palavra_ofensa}\s*(\d+)\s*(.*)"
+    match = re.search(pattern, string)
+
+    if match:
+        numero = int(match.group(1))
+        restante_string = match.group(2)
+        return numero, restante_string
+    else:
+        return None, None
+
+
+def retirar_texto_apos_palavra_resposta(string):
+    # Procurar a palavra "resposta" na string
+    palavra = "resposta"
+    indice = string.find(palavra)
+    
+    if indice != -1:
+        # Se a palavra for encontrada, retornar a parte da string depois dela
+        return string[indice + len(palavra):]
+    else:
+        # Se a palavra não for encontrada, retornar a string original
+        return string
+
+
 # Aplicar estilo CSS
 st.markdown(
     """
@@ -138,7 +166,13 @@ if user_query:
         ofensa = int(resposta["ofensa"])
     else:
         response_text = str(resposta)
-        ofensa = 0
+        nofensa,resto = verificar_ofensa_e_extrair_numero_e_resto(response_text)
+        if nofensa is not None:
+            ofensa = nofensa
+            response_text=retirar_texto_apos_palavra_resposta(resto)
+        else:
+            ofensa=0
+
     response_text = response_text.replace(']','')
     response_text = response_text.replace('[','')
     response_text = response_text.replace('{','')
